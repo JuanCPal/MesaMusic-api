@@ -1,7 +1,7 @@
 # Environment variables
 .env*.local
 .env
-.exe
+*.exe
 
 # Common ignores
 node_modules
