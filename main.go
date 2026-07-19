@@ -50,12 +50,13 @@ func main() {
 		}
 	})
 
-	h := handlers.New(musicProvider, sessionManager)
+	h := handlers.New(musicProvider, sessionManager, cfg.FrontendBaseURL)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/search", h.Search)
 	mux.HandleFunc("POST /api/sessions", h.CreateSession)
 	mux.HandleFunc("GET /api/sessions/{sessionID}", h.GetSession)
+	mux.HandleFunc("GET /api/sessions/{sessionID}/qr", h.GetSessionQR)
 	mux.HandleFunc("POST /api/sessions/{sessionID}/queue", h.AddToQueue)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/queue", h.GetQueue)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/ws", hub.ServeHTTP)

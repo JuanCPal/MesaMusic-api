@@ -3,7 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
+
+	qrcode "github.com/skip2/go-qrcode"
 
 	"musica-colaborativa-api/internal/models"
 	"musica-colaborativa-api/internal/provider"
@@ -11,12 +15,13 @@ import (
 )
 
 type Handlers struct {
-	provider provider.MusicProvider
-	sessions *session.Manager
+	provider        provider.MusicProvider
+	sessions        *session.Manager
+	frontendBaseURL string
 }
 
-func New(mp provider.MusicProvider, sm *session.Manager) *Handlers {
-	return &Handlers{provider: mp, sessions: sm}
+func New(mp provider.MusicProvider, sm *session.Manager, frontendBaseURL string) *Handlers {
+	return &Handlers{provider: mp, sessions: sm, frontendBaseURL: frontendBaseURL}
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
@@ -85,6 +90,28 @@ type createSessionRequest struct {
 	Name string `json:"name"`
 }
 
+type sessionResponse struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+	Status    string    `json:"status"`
+	JoinURL   string    `json:"joinUrl"`
+}
+
+func (h *Handlers) joinURL(sessionID string) string {
+	return fmt.Sprintf("%s/join/%s", h.frontendBaseURL, sessionID)
+}
+
+func (h *Handlers) toSessionResponse(s *session.Session) sessionResponse {
+	return sessionResponse{
+		ID:        s.ID,
+		Name:      s.Name,
+		CreatedAt: s.CreatedAt,
+		Status:    s.Status,
+		JoinURL:   h.joinURL(s.ID),
+	}
+}
+
 // POST /api/sessions { "name": "..." }
 func (h *Handlers) CreateSession(w http.ResponseWriter, r *http.Request) {
 	var req createSessionRequest
@@ -94,7 +121,7 @@ func (h *Handlers) CreateSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session := h.sessions.Create(req.Name)
-	writeJSON(w, http.StatusCreated, session)
+	writeJSON(w, http.StatusCreated, h.toSessionResponse(session))
 }
 
 // GET /api/sessions/{sessionID}
@@ -106,7 +133,26 @@ func (h *Handlers) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, session)
+	writeJSON(w, http.StatusOK, h.toSessionResponse(session))
+}
+
+// GET /api/sessions/{sessionID}/qr
+func (h *Handlers) GetSessionQR(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("sessionID")
+	if _, ok := h.sessions.Get(sessionID); !ok {
+		writeError(w, http.StatusNotFound, "sesion no encontrada")
+		return
+	}
+
+	png, err := qrcode.Encode(h.joinURL(sessionID), qrcode.Medium, 256)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "no se pudo generar el codigo QR")
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(png)
 }
 
 // POST /api/sessions/{sessionID}/queue  { "videoId": "..." }

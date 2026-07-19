@@ -16,8 +16,10 @@ de datos por ahora: todo el estado vive en memoria mientras el proceso corre
    cp .env.example .env
    ```
 2. Edita `.env` y completa `YOUTUBE_API_KEY`. Opcionalmente, agrega IDs de
-   video en `BACKUP_PLAYLIST` (separados por coma) para que suenen cuando la
-   cola esté vacía.
+  video en `BACKUP_PLAYLIST` (separados por coma) para que suenen cuando la
+  cola esté vacía.
+3. Configura `FRONTEND_BASE_URL` (por defecto `http://localhost:3000`) para
+  que el backend pueda construir links `.../join/{sessionID}` y generar QR.
 
 ## Instalar dependencias y correr
 
@@ -58,7 +60,21 @@ Crea una nueva sesión en memoria.
 ```
 
 ### `GET /api/sessions/{sessionID}`
-Devuelve la sesión solicitada.
+Devuelve la sesión solicitada, incluyendo `joinUrl` para compartirla.
+
+```json
+{
+  "id": "e2f6...",
+  "name": "Cumpleaños de Ana",
+  "createdAt": "2026-07-19T20:11:49Z",
+  "status": "active",
+  "joinUrl": "http://localhost:3000/join/e2f6..."
+}
+```
+
+### `GET /api/sessions/{sessionID}/qr`
+Devuelve un PNG (`Content-Type: image/png`) con un código QR que apunta al
+`joinUrl` de la sesión (`{FRONTEND_BASE_URL}/join/{sessionID}`).
 
 ### `POST /api/sessions/{sessionID}/queue`
 Agrega una canción a la cola de esa sesión. El backend vuelve a consultar
@@ -89,9 +105,3 @@ El **panel de reproducción** debe enviar este mensaje cuando el video termine
 ```
 Esto hace que el backend avance la cola automáticamente (siguiente pedido, o
 el siguiente video de la playlist de respaldo si no hay pedidos).
-
-## Próximos pasos sugeridos
-
-- Frontend cliente (búsqueda + cola) y frontend panel (reproductor) en Next.js
-- Si más adelante quieres historial persistente entre reinicios, se agrega
-  SQLite con muy poco cambio (solo en `internal/queue`).
