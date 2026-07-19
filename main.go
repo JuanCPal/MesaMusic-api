@@ -6,8 +6,9 @@ import (
 
 	"musica-colaborativa-api/internal/config"
 	"musica-colaborativa-api/internal/handlers"
+	"musica-colaborativa-api/internal/models"
 	"musica-colaborativa-api/internal/provider"
-	"musica-colaborativa-api/internal/queue"
+	"musica-colaborativa-api/internal/session"
 	"musica-colaborativa-api/internal/ws"
 )
 
@@ -34,21 +35,30 @@ func main() {
 	}
 
 	musicProvider := provider.NewYouTubeProvider(cfg.YouTubeAPIKey)
+	sessionManager := session.NewManager(cfg.BackupPlaylist)
 	hub := ws.NewHub(cfg.AllowedOrigins)
-	queueManager := queue.NewManager(cfg.BackupPlaylist)
 
-	// Conectamos las piezas: cuando la cola cambia, el hub hace broadcast;
-	// cuando el panel avisa que una canción terminó, la cola avanza.
-	queueManager.SetOnChange(hub.Broadcast)
-	hub.SetOnEnded(queueManager.Ended)
+	sessionManager.SetOnSessionCreated(func(s *session.Session) {
+		s.Queue.SetOnChange(func(state models.QueueState) {
+			hub.Broadcast(s.ID, state)
+		})
+	})
 
-	h := handlers.New(musicProvider, queueManager)
+	hub.SetOnEnded(func(sessionID string) {
+		if s, ok := sessionManager.Get(sessionID); ok {
+			s.Queue.Ended()
+		}
+	})
+
+	h := handlers.New(musicProvider, sessionManager)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/search", h.Search)
-	mux.HandleFunc("POST /api/queue", h.AddToQueue)
-	mux.HandleFunc("GET /api/queue", h.GetQueue)
-	mux.HandleFunc("GET /ws", hub.ServeHTTP)
+	mux.HandleFunc("POST /api/sessions", h.CreateSession)
+	mux.HandleFunc("GET /api/sessions/{sessionID}", h.GetSession)
+	mux.HandleFunc("POST /api/sessions/{sessionID}/queue", h.AddToQueue)
+	mux.HandleFunc("GET /api/sessions/{sessionID}/queue", h.GetQueue)
+	mux.HandleFunc("GET /api/sessions/{sessionID}/ws", hub.ServeHTTP)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))

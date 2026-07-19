@@ -20,7 +20,7 @@ func TestManagerCreateCreatesIndependentQueues(t *testing.T) {
 		t.Fatal("expected each session to own a different queue manager")
 	}
 
-	first.Queue.Add(models.Song{VideoID: "abc123", Title: "Tema", DurationSeconds: 180}, "Mesa 1")
+	first.Queue.Add(models.Song{VideoID: "abc123", Title: "Tema", DurationSeconds: 180})
 
 	firstState := first.Queue.State()
 	secondState := second.Queue.State()
@@ -35,6 +35,20 @@ func TestManagerCreateCreatesIndependentQueues(t *testing.T) {
 
 	if len(secondState.Queue) != 0 {
 		t.Fatalf("expected second session queue to remain empty, got %d items", len(secondState.Queue))
+	}
+}
+
+func TestManagerCallsOnSessionCreated(t *testing.T) {
+	mgr := NewManager(nil)
+	var gotID string
+
+	mgr.SetOnSessionCreated(func(s *Session) {
+		gotID = s.ID
+	})
+
+	session := mgr.Create("Sesion con hook")
+	if gotID != session.ID {
+		t.Fatalf("expected hook to receive session ID %q, got %q", session.ID, gotID)
 	}
 }
 

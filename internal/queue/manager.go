@@ -47,12 +47,11 @@ func (m *Manager) SetOnChange(cb OnChange) {
 }
 
 // Add agrega una canción pedida por un cliente al final de la cola.
-func (m *Manager) Add(song models.Song, mesa string) models.QueueItem {
+func (m *Manager) Add(song models.Song) models.QueueItem {
 	m.mu.Lock()
 	item := models.QueueItem{
 		ID:      genID(),
 		Song:    song,
-		Mesa:    mesa,
 		AddedAt: time.Now(),
 	}
 	m.pending = append(m.pending, item)

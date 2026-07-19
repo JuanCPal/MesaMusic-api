@@ -18,7 +18,7 @@ type Session struct {
 	Name      string
 	CreatedAt time.Time
 	Status    string
-	Queue     *queue.Manager
+	Queue     *queue.Manager `json:"-"`
 }
 
 // genID genera un identificador corto y suficientemente unico para una

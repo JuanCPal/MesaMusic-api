@@ -8,9 +8,10 @@ import (
 )
 
 type Manager struct {
-	mu             sync.Mutex
-	sessions       map[string]*Session
-	backupPlaylist []string
+	mu               sync.Mutex
+	sessions         map[string]*Session
+	backupPlaylist   []string
+	onSessionCreated func(*Session)
 }
 
 func NewManager(backupPlaylist []string) *Manager {
@@ -22,7 +23,7 @@ func NewManager(backupPlaylist []string) *Manager {
 
 func (m *Manager) Create(name string) *Session {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	onSessionCreated := m.onSessionCreated
 
 	session := &Session{
 		ID:        genID(),
@@ -33,7 +34,19 @@ func (m *Manager) Create(name string) *Session {
 	}
 
 	m.sessions[session.ID] = session
+	m.mu.Unlock()
+
+	if onSessionCreated != nil {
+		onSessionCreated(session)
+	}
 	return session
+}
+
+func (m *Manager) SetOnSessionCreated(cb func(*Session)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.onSessionCreated = cb
 }
 
 func (m *Manager) Get(id string) (*Session, bool) {

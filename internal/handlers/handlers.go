@@ -7,16 +7,16 @@ import (
 
 	"musica-colaborativa-api/internal/models"
 	"musica-colaborativa-api/internal/provider"
-	"musica-colaborativa-api/internal/queue"
+	"musica-colaborativa-api/internal/session"
 )
 
 type Handlers struct {
 	provider provider.MusicProvider
-	queue *queue.Manager
+	sessions *session.Manager
 }
 
-func New(mp provider.MusicProvider, q *queue.Manager) *Handlers {
-	return &Handlers{provider: mp, queue: q}
+func New(mp provider.MusicProvider, sm *session.Manager) *Handlers {
+	return &Handlers{provider: mp, sessions: sm}
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
@@ -79,11 +79,45 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 
 type addToQueueRequest struct {
 	VideoID string `json:"videoId"`
-	Mesa    string `json:"mesa"`
 }
 
-// POST /api/queue  { "videoId": "...", "mesa": "opcional" }
+type createSessionRequest struct {
+	Name string `json:"name"`
+}
+
+// POST /api/sessions { "name": "..." }
+func (h *Handlers) CreateSession(w http.ResponseWriter, r *http.Request) {
+	var req createSessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "cuerpo inválido")
+		return
+	}
+
+	session := h.sessions.Create(req.Name)
+	writeJSON(w, http.StatusCreated, session)
+}
+
+// GET /api/sessions/{sessionID}
+func (h *Handlers) GetSession(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("sessionID")
+	session, ok := h.sessions.Get(sessionID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "sesion no encontrada")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, session)
+}
+
+// POST /api/sessions/{sessionID}/queue  { "videoId": "..." }
 func (h *Handlers) AddToQueue(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("sessionID")
+	session, ok := h.sessions.Get(sessionID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "sesion no encontrada")
+		return
+	}
+
 	var req addToQueueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "cuerpo inválido")
@@ -103,11 +137,18 @@ func (h *Handlers) AddToQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := h.queue.Add(trackToSong(*track), req.Mesa)
+	item := session.Queue.Add(trackToSong(*track))
 	writeJSON(w, http.StatusCreated, item)
 }
 
-// GET /api/queue
+// GET /api/sessions/{sessionID}/queue
 func (h *Handlers) GetQueue(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, h.queue.State())
+	sessionID := r.PathValue("sessionID")
+	session, ok := h.sessions.Get(sessionID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "sesion no encontrada")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, session.Queue.State())
 }
