@@ -6,9 +6,9 @@ import (
 
 	"musica-colaborativa-api/internal/config"
 	"musica-colaborativa-api/internal/handlers"
+	"musica-colaborativa-api/internal/provider"
 	"musica-colaborativa-api/internal/queue"
 	"musica-colaborativa-api/internal/ws"
-	"musica-colaborativa-api/internal/youtube"
 )
 
 func withCORS(allowedOrigin string, next http.Handler) http.Handler {
@@ -33,7 +33,7 @@ func main() {
 		log.Fatal("YOUTUBE_API_KEY no está configurada. Revisa tu archivo .env")
 	}
 
-	ytClient := youtube.NewClient(cfg.YouTubeAPIKey)
+	musicProvider := provider.NewYouTubeProvider(cfg.YouTubeAPIKey)
 	hub := ws.NewHub(cfg.AllowedOrigins)
 	queueManager := queue.NewManager(cfg.BackupPlaylist)
 
@@ -42,7 +42,7 @@ func main() {
 	queueManager.SetOnChange(hub.Broadcast)
 	hub.SetOnEnded(queueManager.Ended)
 
-	h := handlers.New(ytClient, queueManager)
+	h := handlers.New(musicProvider, queueManager)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/search", h.Search)
