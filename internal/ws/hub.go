@@ -13,11 +13,11 @@ import (
 
 // EndedCallback se invoca cuando el panel de reproducción avisa que la
 // canción actual terminó, para que el manager de cola avance.
-type EndedCallback func()
+type EndedCallback func(sessionID string)
 
 type Hub struct {
 	mu      sync.Mutex
-	clients map[*websocket.Conn]bool
+	clients map[string]map[*websocket.Conn]bool
 
 	upgrader websocket.Upgrader
 	onEnded  EndedCallback
@@ -25,7 +25,7 @@ type Hub struct {
 
 func NewHub(allowedOrigin string) *Hub {
 	return &Hub{
-		clients: make(map[*websocket.Conn]bool),
+		clients: make(map[string]map[*websocket.Conn]bool),
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -45,6 +45,12 @@ func (h *Hub) SetOnEnded(cb EndedCallback) {
 
 // ServeHTTP maneja el upgrade de la conexión y el loop de lectura de cada cliente.
 func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("sessionID")
+	if sessionID == "" {
+		http.Error(w, "missing sessionID", http.StatusBadRequest)
+		return
+	}
+
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("error en upgrade de websocket:", err)
@@ -52,12 +58,18 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	h.clients[conn] = true
+	if h.clients[sessionID] == nil {
+		h.clients[sessionID] = make(map[*websocket.Conn]bool)
+	}
+	h.clients[sessionID][conn] = true
 	h.mu.Unlock()
 
 	defer func() {
 		h.mu.Lock()
-		delete(h.clients, conn)
+		delete(h.clients[sessionID], conn)
+		if len(h.clients[sessionID]) == 0 {
+			delete(h.clients, sessionID)
+		}
 		h.mu.Unlock()
 		conn.Close()
 	}()
@@ -71,14 +83,14 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if msg.Type == "ended" && h.onEnded != nil {
-			h.onEnded()
+			h.onEnded(sessionID)
 		}
 	}
 }
 
 // Broadcast envía el estado actual de la cola a todos los clientes conectados.
 // Se usa como el OnChange callback del queue.Manager.
-func (h *Hub) Broadcast(state models.QueueState) {
+func (h *Hub) Broadcast(sessionID string, state models.QueueState) {
 	payload, err := json.Marshal(map[string]interface{}{
 		"type":  "queueState",
 		"state": state,
@@ -91,10 +103,13 @@ func (h *Hub) Broadcast(state models.QueueState) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	for conn := range h.clients {
+	for conn := range h.clients[sessionID] {
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 			conn.Close()
-			delete(h.clients, conn)
+			delete(h.clients[sessionID], conn)
+			if len(h.clients[sessionID]) == 0 {
+				delete(h.clients, sessionID)
+			}
 		}
 	}
 }
