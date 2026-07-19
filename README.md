@@ -49,22 +49,35 @@ exacta ya resuelta.
 }
 ```
 
-### `POST /api/queue`
-Agrega una canción a la cola. El backend vuelve a consultar YouTube para
-título/duración reales — nunca confía en lo que mande el cliente.
+### `POST /api/sessions`
+Crea una nueva sesión en memoria.
 
 ```json
 // request
-{ "videoId": "dQw4w9WgXcQ", "mesa": "Mesa 4" }
+{ "name": "Cumpleaños de Ana" }
 ```
 
-### `GET /api/queue`
-Devuelve el estado completo: qué está sonando, la cola pendiente y el
-tiempo estimado de espera (en segundos) para cada elemento.
+### `GET /api/sessions/{sessionID}`
+Devuelve la sesión solicitada.
 
-### `GET /ws`
+### `POST /api/sessions/{sessionID}/queue`
+Agrega una canción a la cola de esa sesión. El backend vuelve a consultar
+YouTube para título/duración reales — nunca confía en lo que mande el
+cliente.
+
+```json
+// request
+{ "videoId": "dQw4w9WgXcQ" }
+```
+
+### `GET /api/sessions/{sessionID}/queue`
+Devuelve el estado completo de la cola de esa sesión: qué está sonando, la
+cola pendiente y el tiempo estimado de espera (en segundos) para cada
+elemento.
+
+### `GET /api/sessions/{sessionID}/ws`
 WebSocket. Recibe automáticamente un mensaje cada vez que el estado de la
-cola cambia:
+cola de esa sesión cambia:
 ```json
 { "type": "queueState", "state": { "nowPlaying": {...}, "queue": [...], "estimatedWaitSecs": [...] } }
 ```
