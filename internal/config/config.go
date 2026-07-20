@@ -13,6 +13,7 @@ type Config struct {
 	YouTubeAPIKey   string
 	BackupPlaylist  []string // IDs de video de YouTube para reproducir cuando la cola esté vacía
 	AllowedOrigins  string   // origen permitido para CORS, "*" en desarrollo
+	FrontendBaseURL string   // URL base del frontend para construir links de join y QR
 }
 
 // Load lee un archivo .env (si existe) y luego las variables de entorno,
@@ -21,9 +22,10 @@ func Load() *Config {
 	loadDotEnv(".env")
 
 	cfg := &Config{
-		Port:           getEnv("PORT", "8080"),
-		YouTubeAPIKey:  getEnv("YOUTUBE_API_KEY", ""),
-		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "*"),
+		Port:            getEnv("PORT", "8080"),
+		YouTubeAPIKey:   getEnv("YOUTUBE_API_KEY", ""),
+		AllowedOrigins:  getEnv("ALLOWED_ORIGINS", "*"),
+		FrontendBaseURL: getEnv("FRONTEND_BASE_URL", "http://localhost:3000"),
 	}
 
 	backup := getEnv("BACKUP_PLAYLIST", "")

@@ -14,11 +14,10 @@ type Song struct {
 // QueueItem es una canción ya agregada a la cola compartida, con metadata
 // adicional propia del sistema de colas.
 type QueueItem struct {
-	ID        string    `json:"id"`        // identificador único de esta entrada en la cola
-	Song      Song      `json:"song"`
-	Mesa      string    `json:"mesa,omitempty"` // opcional: identificador de mesa/persona que la pidió
-	AddedAt   time.Time `json:"addedAt"`
-	IsBackup  bool      `json:"isBackup"` // true si viene de la playlist de respaldo, no de un pedido real
+	ID       string    `json:"id"` // identificador único de esta entrada en la cola
+	Song     Song      `json:"song"`
+	AddedAt  time.Time `json:"addedAt"`
+	IsBackup bool      `json:"isBackup"` // true si viene de la playlist de respaldo, no de un pedido real
 }
 
 // QueueState es el snapshot completo que se envía a los clientes (REST y WS).
