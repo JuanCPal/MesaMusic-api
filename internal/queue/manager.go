@@ -80,6 +80,11 @@ func (m *Manager) Ended() {
 	m.advance()
 }
 
+// SkipCurrent fuerza el avance de la cola usando la misma logica que Ended.
+func (m *Manager) SkipCurrent() {
+	m.advance()
+}
+
 // RemoveItem elimina un item por ID solo de la cola pending.
 // Nunca modifica nowPlaying.
 func (m *Manager) RemoveItem(itemID string) error {
