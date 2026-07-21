@@ -15,7 +15,7 @@ import (
 func withCORS(allowedOrigin string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		if r.Method == http.MethodOptions {
@@ -59,6 +59,8 @@ func main() {
 	mux.HandleFunc("GET /api/sessions/{sessionID}/qr", h.GetSessionQR)
 	mux.HandleFunc("POST /api/sessions/{sessionID}/queue", h.AddToQueue)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/queue", h.GetQueue)
+	mux.HandleFunc("DELETE /api/sessions/{sessionID}/queue/{itemID}", h.RemoveFromQueue)
+	mux.HandleFunc("POST /api/sessions/{sessionID}/skip", h.SkipCurrentTrack)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/ws", hub.ServeHTTP)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
