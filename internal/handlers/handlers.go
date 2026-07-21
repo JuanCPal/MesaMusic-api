@@ -11,6 +11,7 @@ import (
 
 	"musica-colaborativa-api/internal/models"
 	"musica-colaborativa-api/internal/provider"
+	"musica-colaborativa-api/internal/queue"
 	"musica-colaborativa-api/internal/session"
 )
 
@@ -197,4 +198,43 @@ func (h *Handlers) GetQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, session.Queue.State())
+}
+
+// DELETE /api/sessions/{sessionID}/queue/{itemID}
+func (h *Handlers) RemoveFromQueue(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("sessionID")
+	itemID := r.PathValue("itemID")
+
+	session, ok := h.sessions.Get(sessionID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "sesion no encontrada")
+		return
+	}
+
+	err := session.Queue.RemoveItem(itemID)
+	if err != nil {
+		if errors.Is(err, queue.ErrItemNotFound) {
+			writeError(w, http.StatusNotFound, "item no encontrado en cola")
+			return
+		}
+
+		writeError(w, http.StatusInternalServerError, "error interno del servidor")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// POST /api/sessions/{sessionID}/skip
+func (h *Handlers) SkipCurrentTrack(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("sessionID")
+
+	session, ok := h.sessions.Get(sessionID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "sesion no encontrada")
+		return
+	}
+
+	session.Queue.SkipCurrent()
+	w.WriteHeader(http.StatusNoContent)
 }
