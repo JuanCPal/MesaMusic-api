@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: mesamusic-api
+    runtime: docker
+    plan: free
+    branch: staging
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://beta.mesamusic.co
+      - key: FRONTEND_BASE_URL
+        value: https://beta.mesamusic.co
+      - key: BACKUP_PLAYLIST
+        sync: false
