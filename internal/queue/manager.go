@@ -3,11 +3,15 @@ package queue
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"sync"
 	"time"
 
 	"musica-colaborativa-api/internal/models"
 )
+
+// ErrItemNotFound se devuelve cuando el item a eliminar no está en pending.
+var ErrItemNotFound = errors.New("queue item not found")
 
 // genID genera un identificador corto y suficientemente único para una
 // entrada de cola, sin depender de ninguna librería externa de UUID.
@@ -74,6 +78,35 @@ func (m *Manager) Add(song models.Song) models.QueueItem {
 // Avanza la cola al siguiente elemento (o a la playlist de respaldo si está vacía).
 func (m *Manager) Ended() {
 	m.advance()
+}
+
+// SkipCurrent fuerza el avance de la cola usando la misma logica que Ended.
+func (m *Manager) SkipCurrent() {
+	m.advance()
+}
+
+// RemoveItem elimina un item por ID solo de la cola pending.
+// Nunca modifica nowPlaying.
+func (m *Manager) RemoveItem(itemID string) error {
+	m.mu.Lock()
+	idx := -1
+	for i := range m.pending {
+		if m.pending[i].ID == itemID {
+			idx = i
+			break
+		}
+	}
+
+	if idx == -1 {
+		m.mu.Unlock()
+		return ErrItemNotFound
+	}
+
+	m.pending = append(m.pending[:idx], m.pending[idx+1:]...)
+	m.mu.Unlock()
+
+	m.notify()
+	return nil
 }
 
 // advance mueve pending[0] a nowPlaying, o si no hay pendientes, toma el
