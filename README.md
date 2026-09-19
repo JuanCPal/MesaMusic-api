@@ -4,6 +4,9 @@ Backend en Go para el sistema de cola de música compartida vía QR. Sin base
 de datos por ahora: todo el estado vive en memoria mientras el proceso corre
 (pensado para una reunión/evento puntual, no para persistencia a largo plazo).
 
+> Ya hay una versión desplegada en **https://api-beta.mesamusic.co** (ver
+> `render.yaml`), sirviendo al frontend de beta en `https://beta.mesamusic.co`.
+
 ## Requisitos
 
 - Go 1.22 o superior
@@ -20,6 +23,9 @@ de datos por ahora: todo el estado vive en memoria mientras el proceso corre
   cola esté vacía.
 3. Configura `FRONTEND_BASE_URL` (por defecto `http://localhost:3000`) para
   que el backend pueda construir links `.../join/{sessionID}` y generar QR.
+4. `PORT` (por defecto `8080`) — puerto en el que escucha el servidor.
+5. `ALLOWED_ORIGINS` (por defecto `*`) — origen permitido para CORS; en
+  producción, pon el dominio real de tu frontend (ej. `https://beta.mesamusic.co`).
 
 ## Instalar dependencias y correr
 
@@ -105,3 +111,27 @@ El **panel de reproducción** debe enviar este mensaje cuando el video termine
 ```
 Esto hace que el backend avance la cola automáticamente (siguiente pedido, o
 el siguiente video de la playlist de respaldo si no hay pedidos).
+
+### `POST /api/sessions/{sessionID}/skip`
+Salta la canción actual y avanza la cola (misma lógica que el mensaje
+`ended` del WebSocket, pero disparada manualmente por el host desde el panel).
+
+### `DELETE /api/sessions/{sessionID}/queue/{itemID}`
+Elimina una canción pendiente de la cola por su `id` de entrada. Solo afecta
+a la cola pendiente, no a lo que ya está sonando.
+
+### `GET /health`
+Healthcheck simple (usado por Render en `render.yaml`). Devuelve `200 ok`
+sin cuerpo JSON.
+
+## Despliegue con Docker
+
+```bash
+docker build -t mesamusic-api .
+docker run -p 8080:8080 --env-file .env mesamusic-api
+```
+
+El repo incluye `render.yaml` para desplegar en [Render](https://render.com)
+directamente desde el `Dockerfile` (rama `staging`, healthcheck en `/health`,
+autodeploy activado). La instancia de beta corre ahí, en
+`https://api-beta.mesamusic.co`.
