@@ -34,7 +34,7 @@ func main() {
 		log.Fatal("YOUTUBE_API_KEY no está configurada. Revisa tu archivo .env")
 	}
 
-	musicProvider := provider.NewYouTubeProvider(cfg.YouTubeAPIKey)
+	musicProvider := provider.NewCachedProvider(provider.NewYouTubeProvider(cfg.YouTubeAPIKey))
 	sessionManager := session.NewManager(cfg.BackupPlaylist)
 	hub := ws.NewHub(cfg.AllowedOrigins)
 
