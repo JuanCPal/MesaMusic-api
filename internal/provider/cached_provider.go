@@ -1,9 +1,12 @@
 package provider
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -21,6 +24,7 @@ type CachedProvider struct {
 	next      MusicProvider
 	cache     map[string]cacheEntry
 	cacheLock sync.RWMutex
+	group     singleflight.Group
 	ttl       time.Duration
 }
 
@@ -62,9 +66,16 @@ func (p *CachedProvider) Search(query string) ([]Track, error) {
 		return cloneTracks(entry.tracks), nil
 	}
 
-	tracks, err := p.next.Search(query)
+	result, err, _ := p.group.Do(normalizedKey, func() (interface{}, error) {
+		return p.next.Search(query)
+	})
 	if err != nil {
 		return nil, err
+	}
+
+	tracks, ok := result.([]Track)
+	if !ok {
+		return nil, fmt.Errorf("%w: unexpected result type from provider", ErrProviderUnavailable)
 	}
 
 	p.cacheLock.Lock()

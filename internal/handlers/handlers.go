@@ -19,10 +19,11 @@ type Handlers struct {
 	provider        provider.MusicProvider
 	sessions        *session.Manager
 	frontendBaseURL string
+	rateLimiter     *IPRateLimiter
 }
 
 func New(mp provider.MusicProvider, sm *session.Manager, frontendBaseURL string) *Handlers {
-	return &Handlers{provider: mp, sessions: sm, frontendBaseURL: frontendBaseURL}
+	return &Handlers{provider: mp, sessions: sm, frontendBaseURL: frontendBaseURL, rateLimiter: NewIPRateLimiter()}
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
@@ -65,6 +66,11 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if q == "" {
 		writeError(w, http.StatusBadRequest, "falta el parámetro q")
+		return
+	}
+
+	if !h.rateLimiter.Allow(clientIP(r)) {
+		writeError(w, http.StatusTooManyRequests, "muchas solicitudes, espera un momento")
 		return
 	}
 

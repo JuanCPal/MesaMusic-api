@@ -2,6 +2,7 @@ package provider
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -80,5 +81,36 @@ func TestCachedProviderDoesNotCacheErrorsOrExpiredEntries(t *testing.T) {
 	}
 	if next.calls != 4 {
 		t.Fatalf("expected expired entry to trigger a refresh, got %d calls", next.calls)
+	}
+}
+
+func TestCachedProviderDeduplicatesConcurrentSearches(t *testing.T) {
+	next := &stubSearchProvider{res: []Track{{ID: "42", Title: "Blondie"}}}
+	cached := NewCachedProvider(next)
+
+	const workers = 3
+	var wg sync.WaitGroup
+	results := make([][]Track, workers)
+	errs := make([]error, workers)
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			results[idx], errs[idx] = cached.Search(" Blondie ")
+		}(i)
+	}
+	wg.Wait()
+
+	if next.calls != 1 {
+		t.Fatalf("expected one upstream call for concurrent identical searches, got %d", next.calls)
+	}
+	for i := range errs {
+		if errs[i] != nil {
+			t.Fatalf("worker %d returned unexpected error: %v", i, errs[i])
+		}
+		if len(results[i]) != 1 || results[i][0].ID != "42" {
+			t.Fatalf("worker %d got unexpected result: %#v", i, results[i])
+		}
 	}
 }
