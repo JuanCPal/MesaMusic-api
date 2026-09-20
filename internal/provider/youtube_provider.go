@@ -12,6 +12,11 @@ import (
 
 const youtubeBaseURL = "https://www.googleapis.com/youtube/v3"
 
+const (
+	maxRetries     = 3
+	baseRetryDelay = 500 * time.Millisecond
+)
+
 // YouTubeProvider encapsula las llamadas a YouTube Data API v3.
 type YouTubeProvider struct {
 	apiKey     string
@@ -232,10 +237,38 @@ func (p *YouTubeProvider) searchTitleFallback(trackID string) (*titleInfo, error
 	return &titleInfo{title: s.Title, channel: s.ChannelTitle, thumbnail: s.Thumbnails.Medium.URL}, nil
 }
 
+func isRetryableStatus(status int) bool {
+	return status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
+}
+
+// doRequestWithRetry reintenta errores de red y respuestas transitorias (429, 5xx) con backoff exponencial.
+func (p *YouTubeProvider) doRequestWithRetry(reqURL string) (*http.Response, error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		resp, err := p.httpClient.Get(reqURL)
+		if err != nil {
+			if attempt < maxRetries {
+				time.Sleep(baseRetryDelay * (1 << (attempt - 1)))
+				continue
+			}
+			return nil, fmt.Errorf("%w: network error", ErrProviderUnavailable)
+		}
+
+		if resp.StatusCode != http.StatusOK && isRetryableStatus(resp.StatusCode) && attempt < maxRetries {
+			resp.Body.Close()
+			time.Sleep(baseRetryDelay * (1 << (attempt - 1)))
+			continue
+		}
+
+		return resp, nil
+	}
+
+	return nil, fmt.Errorf("%w: network error", ErrProviderUnavailable)
+}
+
 func (p *YouTubeProvider) getJSON(reqURL string, out interface{}) error {
-	resp, err := p.httpClient.Get(reqURL)
+	resp, err := p.doRequestWithRetry(reqURL)
 	if err != nil {
-		return fmt.Errorf("%w: network error", ErrProviderUnavailable)
+		return err
 	}
 	defer resp.Body.Close()
 
