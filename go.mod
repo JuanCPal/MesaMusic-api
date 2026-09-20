@@ -1,6 +1,6 @@
 module musica-colaborativa-api
 
-go 1.22.12
+go 1.26.0
 
 require (
 	github.com/gorilla/websocket v1.5.3
