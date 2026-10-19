@@ -13,9 +13,9 @@ import (
 func TestRemoveItemRemovesPendingItem(t *testing.T) {
 	mgr := NewManager(nil)
 
-	nowPlaying := mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180})
-	toRemove := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120})
-	remaining := mgr.Add(models.Song{VideoID: "q-2", Title: "Q2", DurationSeconds: 150})
+	nowPlaying := mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180}, "Ana")
+	toRemove := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120}, "Ana")
+	remaining := mgr.Add(models.Song{VideoID: "q-2", Title: "Q2", DurationSeconds: 150}, "Ana")
 
 	if err := mgr.RemoveItem(toRemove.ID); err != nil {
 		t.Fatalf("expected RemoveItem to succeed, got error: %v", err)
@@ -42,8 +42,8 @@ func TestRemoveItemRemovesPendingItem(t *testing.T) {
 func TestRemoveItemReturnsErrItemNotFound(t *testing.T) {
 	mgr := NewManager(nil)
 
-	_ = mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180})
-	pending := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120})
+	_ = mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180}, "Ana")
+	pending := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120}, "Ana")
 
 	err := mgr.RemoveItem("missing-item")
 	if !errors.Is(err, ErrItemNotFound) {
@@ -85,8 +85,8 @@ func TestRemoveItemReturnsErrItemNotFoundOnEmptyQueue(t *testing.T) {
 func TestSkipCurrentWithPendingAdvancesToNextSong(t *testing.T) {
 	mgr := NewManager(nil)
 
-	_ = mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180})
-	next := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120})
+	_ = mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180}, "Ana")
+	next := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120}, "Ana")
 
 	mgr.SkipCurrent()
 
@@ -141,8 +141,8 @@ func TestSkipCurrentWithoutBackupLeavesNowPlayingNil(t *testing.T) {
 func TestRemoveItemTriggersNotifyOnSuccess(t *testing.T) {
 	mgr := NewManager(nil)
 
-	_ = mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180})
-	toRemove := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120})
+	_ = mgr.Add(models.Song{VideoID: "np-1", Title: "Now Playing", DurationSeconds: 180}, "Ana")
+	toRemove := mgr.Add(models.Song{VideoID: "q-1", Title: "Q1", DurationSeconds: 120}, "Ana")
 
 	var notifyCount int32
 	mgr.SetOnChange(func(_ models.QueueState) {
@@ -191,7 +191,7 @@ func TestManagerConcurrentAccess(t *testing.T) {
 					VideoID:         fmt.Sprintf("video-%d-%d", workerID, i),
 					Title:           "Concurrent",
 					DurationSeconds: 120,
-				})
+				}, "Ana")
 
 				err := mgr.RemoveItem(item.ID)
 				if err != nil && !errors.Is(err, ErrItemNotFound) {
@@ -211,4 +211,28 @@ func TestManagerConcurrentAccess(t *testing.T) {
 	for err := range errCh {
 		t.Fatal(err)
 	}
+}
+
+func TestAddStoresRequestedBy(t *testing.T) {
+mgr := NewManager(nil)
+
+item := mgr.Add(models.Song{VideoID: "v1"}, "Ana")
+
+if item.RequestedBy != "Ana" {
+t.Fatalf("expected RequestedBy %q, got %q", "Ana", item.RequestedBy)
+}
+}
+
+func TestBackupItemIsRequestedByLaCasa(t *testing.T) {
+mgr := NewManager([]string{"backup-1"})
+
+mgr.Ended()
+
+np := mgr.State().NowPlaying
+if np == nil || !np.IsBackup {
+t.Fatal("expected a backup item to be playing")
+}
+if np.RequestedBy != "la casa" {
+t.Fatalf("expected RequestedBy %q, got %q", "la casa", np.RequestedBy)
+}
 }

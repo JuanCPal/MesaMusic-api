@@ -18,6 +18,8 @@ type QueueItem struct {
 	Song     Song      `json:"song"`
 	AddedAt  time.Time `json:"addedAt"`
 	IsBackup bool      `json:"isBackup"` // true si viene de la playlist de respaldo, no de un pedido real
+
+	RequestedBy string `json:"requestedBy"` // texto libre de quien pidió la canción; "la casa" en respaldo
 }
 
 // QueueState es el snapshot completo que se envía a los clientes (REST y WS).
