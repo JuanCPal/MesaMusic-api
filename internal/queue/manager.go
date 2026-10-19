@@ -13,6 +13,9 @@ import (
 // ErrItemNotFound se devuelve cuando el item a eliminar no está en pending.
 var ErrItemNotFound = errors.New("queue item not found")
 
+// BackupRequestedBy es el solicitante de los items de la playlist de respaldo.
+const BackupRequestedBy = "la casa"
+
 // genID genera un identificador corto y suficientemente único para una
 // entrada de cola, sin depender de ninguna librería externa de UUID.
 func genID() string {
@@ -51,12 +54,13 @@ func (m *Manager) SetOnChange(cb OnChange) {
 }
 
 // Add agrega una canción pedida por un cliente al final de la cola.
-func (m *Manager) Add(song models.Song) models.QueueItem {
+func (m *Manager) Add(song models.Song, requestedBy string) models.QueueItem {
 	m.mu.Lock()
 	item := models.QueueItem{
-		ID:      genID(),
-		Song:    song,
-		AddedAt: time.Now(),
+		ID:          genID(),
+		Song:        song,
+		AddedAt:     time.Now(),
+		RequestedBy: requestedBy,
 	}
 	m.pending = append(m.pending, item)
 
@@ -122,10 +126,11 @@ func (m *Manager) advance() {
 		videoID := m.backupPlaylist[m.backupIndex%len(m.backupPlaylist)]
 		m.backupIndex++
 		m.nowPlaying = &models.QueueItem{
-			ID:       genID(),
-			Song:     models.Song{VideoID: videoID, Title: "Reproduciendo playlist de respaldo"},
-			AddedAt:  time.Now(),
-			IsBackup: true,
+			ID:          genID(),
+			Song:        models.Song{VideoID: videoID, Title: "Reproduciendo playlist de respaldo"},
+			AddedAt:     time.Now(),
+			IsBackup:    true,
+			RequestedBy: BackupRequestedBy,
 		}
 	} else {
 		m.nowPlaying = nil

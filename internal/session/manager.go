@@ -21,13 +21,18 @@ func NewManager(backupPlaylist []string) *Manager {
 	}
 }
 
-func (m *Manager) Create(name string) *Session {
+func (m *Manager) Create(name, sessionType string) *Session {
+	if sessionType == "" {
+		sessionType = TypeMeeting
+	}
+
 	m.mu.Lock()
 	onSessionCreated := m.onSessionCreated
 
 	session := &Session{
 		ID:        genID(),
 		Name:      name,
+		Type:      sessionType,
 		CreatedAt: time.Now(),
 		Status:    StatusActive,
 		Queue:     queue.NewManager(m.backupPlaylist),
