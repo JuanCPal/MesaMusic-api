@@ -89,8 +89,13 @@ cliente.
 
 ```json
 // request
-{ "videoId": "dQw4w9WgXcQ" }
+{ "videoId": "dQw4w9WgXcQ", "requestedBy": "Ana" }
 ```
+
+`requestedBy` es opcional (texto libre): se recorta con trim, se limita a 30
+caracteres y, si queda vac�o, se guarda como `Alguien`. El item devuelto (y los
+del snapshot REST/WebSocket) incluye `requestedBy`; los de la playlist de
+respaldo (`isBackup: true`) llevan `"la casa"`.
 
 ### `GET /api/sessions/{sessionID}/queue`
 Devuelve el estado completo de la cola de esa sesión: qué está sonando, la

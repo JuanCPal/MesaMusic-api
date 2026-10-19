@@ -9,8 +9,8 @@ import (
 func TestManagerCreateCreatesIndependentQueues(t *testing.T) {
 	mgr := NewManager([]string{"backup-1", "backup-2"})
 
-	first := mgr.Create("Cumpleanos de Ana")
-	second := mgr.Create("After Office")
+	first := mgr.Create("Cumpleanos de Ana", "")
+	second := mgr.Create("After Office", "")
 
 	if first.ID == second.ID {
 		t.Fatalf("expected unique session IDs, got %q", first.ID)
@@ -20,7 +20,7 @@ func TestManagerCreateCreatesIndependentQueues(t *testing.T) {
 		t.Fatal("expected each session to own a different queue manager")
 	}
 
-	first.Queue.Add(models.Song{VideoID: "abc123", Title: "Tema", DurationSeconds: 180})
+	first.Queue.Add(models.Song{VideoID: "abc123", Title: "Tema", DurationSeconds: 180}, "Ana")
 
 	firstState := first.Queue.State()
 	secondState := second.Queue.State()
@@ -46,7 +46,7 @@ func TestManagerCallsOnSessionCreated(t *testing.T) {
 		gotID = s.ID
 	})
 
-	session := mgr.Create("Sesion con hook")
+	session := mgr.Create("Sesion con hook", "")
 	if gotID != session.ID {
 		t.Fatalf("expected hook to receive session ID %q, got %q", session.ID, gotID)
 	}
@@ -54,7 +54,7 @@ func TestManagerCallsOnSessionCreated(t *testing.T) {
 
 func TestManagerEndMarksSessionAsEndedWithoutDeletingIt(t *testing.T) {
 	mgr := NewManager(nil)
-	session := mgr.Create("Sesion de prueba")
+	session := mgr.Create("Sesion de prueba", "")
 
 	if ok := mgr.End(session.ID); !ok {
 		t.Fatal("expected End to succeed for an existing session")
@@ -76,4 +76,20 @@ func TestManagerEndReturnsFalseForUnknownSession(t *testing.T) {
 	if ok := mgr.End("missing"); ok {
 		t.Fatal("expected End to return false for an unknown session")
 	}
+}
+
+func TestManagerCreateDefaultsTypeToMeeting(t *testing.T) {
+s := NewManager(nil).Create("Sesion", "")
+
+if s.Type != TypeMeeting {
+t.Fatalf("expected type %q, got %q", TypeMeeting, s.Type)
+}
+}
+
+func TestManagerCreateKeepsBusinessType(t *testing.T) {
+s := NewManager(nil).Create("Sesion", TypeBusiness)
+
+if s.Type != TypeBusiness {
+t.Fatalf("expected type %q, got %q", TypeBusiness, s.Type)
+}
 }

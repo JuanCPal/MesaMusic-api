@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	qrcode "github.com/skip2/go-qrcode"
@@ -44,6 +45,17 @@ func trackToSong(track provider.Track) models.Song {
 		Thumbnail:       track.Thumbnail,
 		DurationSeconds: track.DurationSeconds,
 	}
+}
+
+func sanitizeRequestedBy(s string) string {
+	s = strings.TrimSpace(s)
+	if r := []rune(s); len(r) > maxRequestedByLen {
+		s = strings.TrimSpace(string(r[:maxRequestedByLen]))
+	}
+	if s == "" {
+		return defaultRequestedBy
+	}
+	return s
 }
 
 func mapProviderError(err error) (status int, message string) {
@@ -89,17 +101,25 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"results": songs})
 }
 
+const (
+	defaultRequestedBy = "Alguien"
+	maxRequestedByLen  = 30
+)
+
 type addToQueueRequest struct {
-	VideoID string `json:"videoId"`
+	VideoID     string `json:"videoId"`
+	RequestedBy string `json:"requestedBy"`
 }
 
 type createSessionRequest struct {
 	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type sessionResponse struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
+	Type      string    `json:"type"`
 	CreatedAt time.Time `json:"createdAt"`
 	Status    string    `json:"status"`
 	JoinURL   string    `json:"joinUrl"`
@@ -113,6 +133,7 @@ func (h *Handlers) toSessionResponse(s *session.Session) sessionResponse {
 	return sessionResponse{
 		ID:        s.ID,
 		Name:      s.Name,
+		Type:      s.Type,
 		CreatedAt: s.CreatedAt,
 		Status:    s.Status,
 		JoinURL:   h.joinURL(s.ID),
@@ -127,7 +148,12 @@ func (h *Handlers) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := h.sessions.Create(req.Name)
+	if req.Type != "" && !session.ValidType(req.Type) {
+		writeError(w, http.StatusBadRequest, "tipo de sesion invalido, usa 'meeting' o 'business'")
+		return
+	}
+
+	session := h.sessions.Create(req.Name, req.Type)
 	writeJSON(w, http.StatusCreated, h.toSessionResponse(session))
 }
 
@@ -190,7 +216,7 @@ func (h *Handlers) AddToQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := session.Queue.Add(trackToSong(*track))
+	item := session.Queue.Add(trackToSong(*track), sanitizeRequestedBy(req.RequestedBy))
 	writeJSON(w, http.StatusCreated, item)
 }
 

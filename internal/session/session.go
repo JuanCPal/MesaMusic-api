@@ -11,11 +11,20 @@ import (
 const (
 	StatusActive = "active"
 	StatusEnded  = "ended"
+
+	TypeMeeting  = "meeting"
+	TypeBusiness = "business"
 )
+
+// ValidType indica si t es un tipo de sesión soportado.
+func ValidType(t string) bool {
+	return t == TypeMeeting || t == TypeBusiness
+}
 
 type Session struct {
 	ID        string
 	Name      string
+	Type      string
 	CreatedAt time.Time
 	Status    string
 	Queue     *queue.Manager `json:"-"`
