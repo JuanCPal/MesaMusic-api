@@ -3,6 +3,7 @@ package config
 import (
 	"bufio"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,11 @@ type Config struct {
 	BackupPlaylist  []string // IDs de video de YouTube para reproducir cuando la cola esté vacía
 	AllowedOrigins  string   // origen permitido para CORS, "*" en desarrollo
 	FrontendBaseURL string   // URL base del frontend para construir links de join y QR
+
+	DatabaseURL        string // runtime (pooler Supabase, modo transacción); vacío = modo memoria
+	DatabaseMigrateURL string // solo migraciones (pooler modo sesión); si vacío se usa DatabaseURL
+	DBAutoMigrate      bool
+	DBMaxConns         int32
 }
 
 // Load lee un archivo .env (si existe) y luego las variables de entorno,
@@ -26,6 +32,13 @@ func Load() *Config {
 		YouTubeAPIKey:   getEnv("YOUTUBE_API_KEY", ""),
 		AllowedOrigins:  getEnv("ALLOWED_ORIGINS", "*"),
 		FrontendBaseURL: getEnv("FRONTEND_BASE_URL", "http://localhost:3000"),
+		DatabaseURL:        getEnv("DATABASE_URL", ""),
+		DatabaseMigrateURL: getEnv("DATABASE_MIGRATE_URL", ""),
+		DBAutoMigrate:      getEnv("DB_AUTO_MIGRATE", "false") == "true",
+		DBMaxConns:         5,
+	}
+	if n, err := strconv.Atoi(getEnv("DB_MAX_CONNS", "")); err == nil && n > 0 && n <= 10 {
+		cfg.DBMaxConns = int32(n)
 	}
 
 	backup := getEnv("BACKUP_PLAYLIST", "")
