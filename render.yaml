@@ -19,3 +19,9 @@ services:
         value: https://beta.mesamusic.co
       - key: BACKUP_PLAYLIST
         sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_MIGRATE_URL
+        sync: false
+      - key: DB_AUTO_MIGRATE
+        sync: false
